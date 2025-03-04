@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethical Journalism Assistant</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f4f4; }
+        .chat-container { height: 60vh; border: 1px solid #ddd; border-radius: 8px; overflow-y: auto; padding: 15px; margin: 20px 0; background: #fff; }
+        .message { margin: 10px 0; padding: 12px; border-radius: 15px; max-width: 80%; word-wrap: break-word; opacity: 0; transition: opacity 0.5s ease-in-out; }
+        .user-message { background: #007bff; color: white; margin-left: auto; }
+        .bot-message { background: #e9ecef; margin-right: auto; }
+        .file-input-label { cursor: pointer; margin-left: 10px; }
+        .system-message { color: #6c757d; font-style: italic; text-align: center; }
+        .loading { color: #6c757d; font-style: italic; text-align: left; }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <h2 class="text-center mb-4">Ethical Journalism Assistant</h2>
+        
+        <div class="chat-container" id="chatContainer">
+            <div class="system-message">Welcome! Enter text or upload an audio/video/image file for analysis.</div>
+        </div>
+
+        <div class="input-group">
+            <textarea id="messageInput" class="form-control" placeholder="Type a message or upload a file..." rows="2"></textarea>
+            <div class="input-group-append">
+                <label class="btn btn-outline-secondary file-input-label">
+                    📎 <input type="file" id="fileInput" hidden accept="image/*,audio/*,video/*">
+                </label>
+                <button class="btn btn-primary" onclick="handleSend()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const fileInput = document.getElementById('fileInput');
+
+        function appendMessage(text, isUser = false, isLoading = false) {
+            const div = document.createElement('div');
+            div.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            div.innerHTML = isLoading ? "<span class='loading'>Thinking...</span>" : (isUser ? text : `<strong>Analysis:</strong><br>${formatAnalysis(text)}`);
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            setTimeout(() => div.style.opacity = 1, 50);
+            return div;  // Return message element for further modification
+        }
+
+        function formatAnalysis(responseText) {
+    try {
+        const data = JSON.parse(responseText);
+        let html = `<strong>Chatbot Response:</strong> ${data.response}<br><br>`;  // Add chatbot reply
+        html += data.transcript ? `<strong>Transcript:</strong> ${data.transcript.slice(0, 100)}...<br>` : '';
+        html += `Xenophobic Language: ${data.xenophobic_language ? '⚠️ Detected' : '✅ None'}<br>`;
+        html += `Misinformation Confidence: ${(data.misinformation_confidence * 100).toFixed(1)}%`;
+        return html;
+    } catch (e) {
+        return responseText;
+    }
+}
+
+
+        async function handleSend() {
+            const text = messageInput.value.trim();
+            const file = fileInput.files[0];
+
+            if (!text && !file) return;
+
+            if (text) {
+                appendMessage(text, true);
+                messageInput.value = '';
+                const loadingMessage = appendMessage('', false, true);
+                try {
+                    const response = await fetch('/analyze/text', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text })
+                    });
+                    loadingMessage.remove();
+                    appendMessage(await response.text(), false);
+                } catch (error) {
+                    loadingMessage.remove();
+                    appendMessage('Error analyzing text', false);
+                }
+            }
+
+            if (file) {
+                appendMessage(`File: ${file.name} (${file.type})`, true);
+                const formData = new FormData();
+                formData.append('file', file);
+                const endpoint = file.type.startsWith('audio/') ? '/analyze/audio' : 
+                                file.type.startsWith('video/') ? '/analyze/video' : 
+                                '/analyze/image';
+                const loadingMessage = appendMessage('', false, true);
+                try {
+                    const response = await fetch(endpoint, { method: 'POST', body: formData });
+                    loadingMessage.remove();
+                    appendMessage(await response.text(), false);
+                } catch (error) {
+                    loadingMessage.remove();
+                    appendMessage('Error processing file', false);
+                }
+                fileInput.value = '';
+            }
+        }
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+    </script>
+</body>
+</html>
