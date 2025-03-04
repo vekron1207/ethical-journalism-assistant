@@ -24,14 +24,12 @@ source venv/bin/activate  # On Windows use: venv\Scripts\activate
 
 ### 3. Install Dependencies
 ```sh
-pip install -r requirements.txt
+pip install flask transformers torch torchvision torchaudio openai-whisper pillow opencv-python ffmpeg-python
 ```
 
 ### 4. Download Necessary Models
 ```sh
 python -c "from transformers import pipeline; pipeline('text-generation', model='microsoft/DialoGPT-medium')"
-pip install torch torchvision torchaudio
-pip install openai-whisper
 whisper.download_model('base')
 ```
 
